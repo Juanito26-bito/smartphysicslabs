@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>FreqHaptic — Sound Frequency → Vibration</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #05070d; --panel: #0a1019; --border: #141e30;
+    --freq: #22d3ee; --vib: #f97316; --acc: #a78bfa;
+    --ok: #22c55e; --danger: #ff5e5b; --warn: #facc15;
+    --text: #c4d9ef; --dim: #365470;
+    --glow-freq: rgba(34,211,238,0.28); --glow-vib: rgba(249,115,22,0.28); --glow-acc: rgba(167,139,250,0.25);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh; padding: 1rem; overflow-x: hidden;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      linear-gradient(rgba(34,211,238,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34,211,238,0.015) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+  body::after {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(ellipse 70% 40% at 50% 50%,
+      rgba(34,211,238, var(--freq-glow,0)) 0%, transparent 70%);
+    transition: background 0.2s;
+  }
+  .container { position: relative; z-index: 1; max-width: 500px; margin: 0 auto; }
+
+  /* Header */
+  h1 {
+    font-family: 'Orbitron', sans-serif; font-weight: 900;
+    font-size: clamp(0.9rem, 4.5vw, 1.2rem); letter-spacing: 0.06em;
+    text-align: center; padding: 1rem 0 0.25rem;
+    background: linear-gradient(90deg, var(--freq), var(--acc), var(--vib));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .subtitle { text-align: center; font-size: 0.6rem; color: var(--dim); letter-spacing: 0.25em; text-transform: uppercase; margin-bottom: 1.3rem; }
+
+  /* Banner */
+  .banner {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.65rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .dot.ok      { background: var(--ok);    box-shadow: 0 0 7px var(--ok); }
+  .dot.no      { background: var(--danger);box-shadow: 0 0 7px var(--danger); }
+  .dot.pending { background: var(--warn);  box-shadow: 0 0 7px var(--warn); animation: blink 1s infinite; }
+  .dot.live    { background: var(--freq);  box-shadow: 0 0 8px var(--freq); animation: blink 0.55s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.12} }
+
+  /* ── FFT SPECTRUM ── */
+  .spectrum-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem 1rem 0.8rem; margin-bottom: 1rem; position: relative; overflow: hidden;
+  }
+  .spectrum-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--freq), transparent);
+  }
+  #specCanvas {
+    width: 100%; height: 130px; display: block;
+    border-radius: 4px; background: #020508; border: 1px solid var(--border); margin-bottom: 0.7rem;
+  }
+
+  /* Dominant freq display */
+  .freq-row { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin-bottom: 0.7rem; }
+  .freq-value {
+    font-family: 'Orbitron', sans-serif; font-weight: 900;
+    font-size: clamp(2.5rem, 13vw, 3.8rem); color: var(--freq); line-height: 1;
+    text-shadow: 0 0 28px var(--glow-freq); transition: color 0.1s, text-shadow 0.1s;
+  }
+  .freq-unit { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--dim); padding-bottom: 8px; }
+
+  /* Note badge */
+  .note-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(34,211,238,0.08); border: 1px solid rgba(34,211,238,0.3);
+    border-radius: 6px; padding: 4px 12px;
+    font-family: 'Orbitron', sans-serif; font-size: 1.1rem; font-weight: 700;
+    color: var(--freq); letter-spacing: 0.1em; margin-bottom: 0.7rem;
+    text-shadow: 0 0 12px var(--glow-freq);
+  }
+
+  /* Band selector strip */
+  .band-strip { display: grid; grid-template-columns: repeat(5,1fr); gap: 0.35rem; margin-bottom: 0; }
+  .band-box {
+    background: #020508; border: 1px solid var(--border); border-radius: 5px;
+    padding: 0.45rem 0.3rem; text-align: center; cursor: pointer; transition: all 0.2s;
+  }
+  .band-box:hover { border-color: var(--freq); }
+  .band-box.sel { border-color: var(--freq); background: rgba(34,211,238,0.07); box-shadow: 0 0 8px var(--glow-freq); }
+  .band-name { font-family: 'Orbitron', sans-serif; font-size: 0.5rem; font-weight: 700; letter-spacing: 0.08em; color: var(--dim); }
+  .band-box.sel .band-name { color: var(--freq); }
+  .band-range { font-size: 0.44rem; color: var(--dim); margin-top: 2px; }
+  .band-level { height: 3px; border-radius: 2px; background: var(--border); margin-top: 5px; overflow: hidden; }
+  .band-level-fill { height: 100%; background: var(--freq); width: 0%; transition: width 0.1s; border-radius: 2px; }
+
+  /* Stats */
+  .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.4rem; margin-bottom: 1rem; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.5rem; text-align: center; }
+  .stat-lbl { font-size: 0.44rem; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 2px; }
+  .stat-val { font-family: 'Orbitron', sans-serif; font-size: 0.72rem; }
+  #statDom  { color: var(--freq); }
+  #statNote { color: var(--acc); }
+  #statVib  { color: var(--vib); }
+  #statMode { color: var(--ok); }
+
+  /* ── MAPPING CONFIG ── */
+  .map-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1.1rem 1.2rem; margin-bottom: 1rem; position: relative; overflow: hidden;
+  }
+  .map-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--vib), transparent);
+  }
+  .section-label {
+    font-family: 'Orbitron', sans-serif; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.2em; color: var(--vib); margin-bottom: 0.9rem;
+  }
+
+  .map-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.7rem; }
+  .map-param { background: #020508; border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.7rem; }
+  .map-lbl { font-size: 0.46rem; color: var(--dim); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 3px; }
+  .map-val { font-family: 'Orbitron', sans-serif; font-size: 0.78rem; color: var(--vib); text-align: right; margin-bottom: 4px; }
+  .map-val.freq-col { color: var(--freq); }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 3px;
+    border-radius: 2px; outline: none; cursor: pointer;
+    background: linear-gradient(90deg, var(--vib) var(--pct,50%), var(--border) var(--pct,50%));
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--vib); border: 2px solid var(--bg);
+    box-shadow: 0 0 8px var(--glow-vib); cursor: pointer;
+  }
+  .map-param.freq-param input[type=range] {
+    background: linear-gradient(90deg, var(--freq) var(--pct,50%), var(--border) var(--pct,50%));
+  }
+  .map-param.freq-param input[type=range]::-webkit-slider-thumb {
+    background: var(--freq); box-shadow: 0 0 8px var(--glow-freq);
+  }
+
+  /* Mapping mode buttons */
+  .mode-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; margin-bottom: 0.8rem; }
+  .mode-btn {
+    background: #020508; border: 1px solid var(--border); border-radius: 5px;
+    padding: 0.55rem 0.4rem; cursor: pointer; transition: all 0.2s; text-align: center;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.56rem; color: var(--dim);
+  }
+  .mode-btn:hover { border-color: var(--vib); color: var(--vib); }
+  .mode-btn.active-mode { border-color: var(--vib); color: var(--vib); background: rgba(249,115,22,0.07); box-shadow: 0 0 8px var(--glow-vib); }
+  .mode-name { font-family: 'Orbitron', sans-serif; font-size: 0.53rem; font-weight: 700; letter-spacing: 0.08em; }
+
+  /* Curve buttons */
+  .curve-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.4rem; margin-bottom: 0.8rem; }
+  .curve-btn {
+    background: #020508; border: 1px solid var(--border); border-radius: 5px;
+    padding: 0.5rem 0.3rem; cursor: pointer; transition: all 0.2s;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .curve-btn:hover { border-color: var(--acc); }
+  .curve-btn.active-curve { border-color: var(--acc); background: rgba(167,139,250,0.07); box-shadow: 0 0 8px var(--glow-acc); }
+  .curve-canvas { width: 48px; height: 30px; display: block; }
+  .curve-name { font-size: 0.44rem; color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; text-align: center; }
+  .curve-btn.active-curve .curve-name { color: var(--acc); }
+
+  /* ── LIVE MAPPING VIZ ── */
+  .viz-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1rem 1.2rem; margin-bottom: 1rem; position: relative; overflow: hidden;
+  }
+  .viz-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--freq), var(--vib), transparent);
+  }
+  #mapCanvas { width: 100%; height: 90px; display: block; border-radius: 4px; background: #020508; border: 1px solid var(--border); }
+
+  /* Controls */
+  .ctrl-row { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+  .fire-btn {
+    flex: 2; padding: 0.9rem; border-radius: 7px; border: 1.5px solid var(--freq);
+    background: rgba(34,211,238,0.06); color: var(--freq);
+    font-family: 'Orbitron', sans-serif; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.18em; cursor: pointer; transition: all 0.2s;
+    box-shadow: 0 0 12px var(--glow-freq); display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .fire-btn:hover { background: rgba(34,211,238,0.14); box-shadow: 0 0 24px var(--glow-freq); }
+  .fire-btn.active { background: rgba(34,211,238,0.16); animation: activePulse 1.5s ease-in-out infinite; }
+  @keyframes activePulse { 0%,100%{box-shadow:0 0 12px var(--glow-freq)} 50%{box-shadow:0 0 30px rgba(34,211,238,0.5)} }
+  .stop-btn {
+    flex: 1; padding: 0.9rem; border-radius: 7px; border: 1px solid rgba(255,94,91,0.3);
+    background: rgba(255,94,91,0.05); color: var(--danger);
+    font-family: 'Orbitron', sans-serif; font-size: 0.65rem; font-weight: 700;
+    letter-spacing: 0.12em; cursor: pointer; transition: all 0.2s;
+  }
+  .stop-btn:hover { border-color: var(--danger); background: rgba(255,94,91,0.12); }
+
+  /* Calibrate */
+  .cal-row {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.8rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  .cal-title { font-family: 'Orbitron', sans-serif; font-size: 0.62rem; color: var(--acc); letter-spacing: 0.15em; margin-bottom: 2px; }
+  .cal-sub   { font-size: 0.54rem; color: var(--dim); line-height: 1.5; }
+  .cal-btn {
+    background: transparent; border: 1px solid rgba(167,139,250,0.35); border-radius: 5px;
+    padding: 7px 14px; font-family: 'Share Tech Mono', monospace; font-size: 0.62rem;
+    letter-spacing: 0.1em; cursor: pointer; color: var(--acc); transition: all 0.2s; white-space: nowrap;
+  }
+  .cal-btn:hover { border-color: var(--acc); box-shadow: 0 0 10px var(--glow-acc); }
+
+  /* Status log */
+  .status-log {
+    background: #020508; border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.6rem 0.8rem; height: 78px; overflow-y: auto; font-size: 0.58rem;
+    line-height: 1.65; color: var(--dim); margin-bottom: 1rem;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  }
+  .log-e { display: flex; gap: 8px; }
+  .log-t { color: var(--freq); opacity: 0.6; flex-shrink: 0; }
+  .ok   { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--danger); } .info { color: var(--text); }
+
+  .footer { text-align: center; font-size: 0.52rem; color: var(--dim); letter-spacing: 0.15em; padding: 0.5rem 0 1.5rem; opacity: 0.4; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>FreqHaptic</h1>
+  <p class="subtitle">Dominant Frequency → Vibration Mapper</p>
+
+  <div class="banner" id="banner">
+    <div class="dot pending" id="bannerDot"></div>
+    <div id="bannerText" style="font-size:0.63rem">Tap START to request microphone and begin mapping</div>
+  </div>
+
+  <!-- ── SPECTRUM + FREQ DISPLAY ── -->
+  <div class="spectrum-card">
+    <canvas id="specCanvas"></canvas>
+
+    <div class="freq-row">
+      <div class="freq-value" id="freqValue">—</div>
+      <div class="freq-unit">Hz</div>
+    </div>
+    <div style="text-align:center; margin-bottom:0.7rem">
+      <div class="note-badge" id="noteBadge">— —</div>
+    </div>
+
+    <!-- Frequency band selector -->
+    <div class="band-strip">
+      <div class="band-box sel" id="band-sub"    onclick="selectBand('sub')">
+        <div class="band-name">SUB</div>
+        <div class="band-range">20–80 Hz</div>
+        <div class="band-level"><div class="band-level-fill" id="bl-sub"></div></div>
+      </div>
+      <div class="band-box" id="band-bass"   onclick="selectBand('bass')">
+        <div class="band-name">BASS</div>
+        <div class="band-range">80–300 Hz</div>
+        <div class="band-level"><div class="band-level-fill" id="bl-bass"></div></div>
+      </div>
+      <div class="band-box" id="band-mid"    onclick="selectBand('mid')">
+        <div class="band-name">MID</div>
+        <div class="band-range">300–2k Hz</div>
+        <div class="band-level"><div class="band-level-fill" id="bl-mid"></div></div>
+      </div>
+      <div class="band-box" id="band-high"   onclick="selectBand('high')">
+        <div class="band-name">HIGH</div>
+        <div class="band-range">2k–8k Hz</div>
+        <div class="band-level"><div class="band-level-fill" id="bl-high"></div></div>
+      </div>
+      <div class="band-box" id="band-air"    onclick="selectBand('air')">
+        <div class="band-name">AIR</div>
+        <div class="band-range">8k–20k Hz</div>
+        <div class="band-level"><div class="band-level-fill" id="bl-air"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STATS ── -->
+  <div class="stats-row">
+    <div class="stat"><div class="stat-lbl">Dominant</div><div class="stat-val" id="statDom">— Hz</div></div>
+    <div class="stat"><div class="stat-lbl">Note</div>    <div class="stat-val" id="statNote">—</div></div>
+    <div class="stat"><div class="stat-lbl">Vib Out</div> <div class="stat-val" id="statVib">— Hz</div></div>
+    <div class="stat"><div class="stat-lbl">Mode</div>    <div class="stat-val" id="statMode">OFF</div></div>
+  </div>
+
+  <!-- ── MAPPING CONFIG ── -->
+  <div class="map-card">
+    <div class="section-label">⊿ MAPPING CONFIG</div>
+
+    <!-- Audio frequency input range -->
+    <div class="map-row">
+      <div class="map-param freq-param">
+        <div class="map-lbl">Audio Freq Min</div>
+        <div class="map-val freq-col" id="aMinVal">80 Hz</div>
+        <input type="range" id="aMinSlider" min="20" max="2000" step="10" value="80"
+          oninput="updateParam('aMin',this.value)" style="--pct:3%">
+      </div>
+      <div class="map-param freq-param">
+        <div class="map-lbl">Audio Freq Max</div>
+        <div class="map-val freq-col" id="aMaxVal">1200 Hz</div>
+        <input type="range" id="aMaxSlider" min="20" max="8000" step="10" value="1200"
+          oninput="updateParam('aMax',this.value)" style="--pct:15%">
+      </div>
+    </div>
+
+    <!-- Vibration output range -->
+    <div class="map-row">
+      <div class="map-param">
+        <div class="map-lbl">Vib Freq Min</div>
+        <div class="map-val" id="vMinVal">1 Hz</div>
+        <input type="range" id="vMinSlider" min="1" max="20" step="1" value="1"
+          oninput="updateParam('vMin',this.value)" style="--pct:0%">
+      </div>
+      <div class="map-param">
+        <div class="map-lbl">Vib Freq Max</div>
+        <div class="map-val" id="vMaxVal">20 Hz</div>
+        <input type="range" id="vMaxSlider" min="1" max="30" step="1" value="20"
+          oninput="updateParam('vMax',this.value)" style="--pct:63%">
+      </div>
+    </div>
+
+    <!-- Noise gate -->
+    <div class="map-row">
+      <div class="map-param freq-param">
+        <div class="map-lbl">Noise Gate (dB)</div>
+        <div class="map-val freq-col" id="gateVal">−40 dB</div>
+        <input type="range" id="gateSlider" min="-80" max="-10" step="1" value="-40"
+          oninput="updateParam('gate',this.value)" style="--pct:50%">
+      </div>
+      <div class="map-param">
+        <div class="map-lbl">Smoothing</div>
+        <div class="map-val" id="smoothVal">0.7</div>
+        <input type="range" id="smoothSlider" min="0" max="0.95" step="0.05" value="0.7"
+          oninput="updateParam('smooth',this.value)" style="--pct:74%">
+      </div>
+    </div>
+
+    <!-- What to modulate -->
+    <div style="font-size:0.5rem;color:var(--dim);margin-bottom:0.5rem;letter-spacing:0.1em">MODULATE →</div>
+    <div class="mode-row">
+      <button class="mode-btn active-mode" id="mod-vibfreq" onclick="selectMod('vibfreq')">
+        <div class="mode-name">VIB FREQ</div><div style="font-size:0.46rem;margin-top:2px">pulse rate</div>
+      </button>
+      <button class="mode-btn" id="mod-duty" onclick="selectMod('duty')">
+        <div class="mode-name">DUTY</div><div style="font-size:0.46rem;margin-top:2px">on/off ratio</div>
+      </button>
+      <button class="mode-btn" id="mod-both" onclick="selectMod('both')">
+        <div class="mode-name">BOTH</div><div style="font-size:0.46rem;margin-top:2px">freq + duty</div>
+      </button>
+    </div>
+
+    <!-- Mapping curve -->
+    <div style="font-size:0.5rem;color:var(--dim);margin-bottom:0.5rem;letter-spacing:0.1em">CURVE →</div>
+    <div class="curve-row">
+      <button class="curve-btn active-curve" id="curve-linear" onclick="selectCurve('linear')">
+        <canvas class="curve-canvas" id="cc-linear"></canvas><div class="curve-name">Linear</div>
+      </button>
+      <button class="curve-btn" id="curve-exp" onclick="selectCurve('exp')">
+        <canvas class="curve-canvas" id="cc-exp"></canvas><div class="curve-name">Exp</div>
+      </button>
+      <button class="curve-btn" id="curve-log" onclick="selectCurve('log')">
+        <canvas class="curve-canvas" id="cc-log"></canvas><div class="curve-name">Log</div>
+      </button>
+      <button class="curve-btn" id="curve-step" onclick="selectCurve('step')">
+        <canvas class="curve-canvas" id="cc-step"></canvas><div class="curve-name">Step</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── LIVE MAPPING VIZ ── -->
+  <div class="viz-card">
+    <div style="font-family:'Orbitron',sans-serif;font-size:0.62rem;font-weight:700;color:var(--acc);letter-spacing:0.15em;margin-bottom:0.6rem">
+      ⊲ LIVE MAPPING
+    </div>
+    <canvas id="mapCanvas"></canvas>
+  </div>
+
+  <!-- ── CALIBRATE ── -->
+  <div class="cal-row">
+    <div>
+      <div class="cal-title">AUTO-SET RANGE</div>
+      <div class="cal-sub">Listen for 5s to auto-set<br>audio frequency min/max</div>
+    </div>
+    <button class="cal-btn" id="calBtn" onclick="startCalibration()">⊙ CALIBRATE</button>
+  </div>
+
+  <!-- ── STATUS LOG ── -->
+  <div class="status-log" id="statusLog"></div>
+
+  <!-- ── CONTROLS ── -->
+  <div class="ctrl-row">
+    <button class="fire-btn" id="fireBtn" onclick="toggleMapping()">
+      <span id="fireLbl">▶ START MAPPING</span>
+    </button>
+    <button class="stop-btn" onclick="stopMapping()">■ STOP</button>
+  </div>
+
+  <div class="footer">FREQHAPTIC v1.0 · WEB AUDIO API FFT · VIBRATION API</div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────
+let active = false;
+let audioCtx = null, analyser = null, micStream = null;
+let dataArray = null, freqBinCount = 0, sampleRate = 44100;
+let rafId = null;
+
+// Measured values
+let domFreq = 0, domNote = '—', domOctave = '';
+let bandLevels = { sub: 0, bass: 0, mid: 0, high: 0, air: 0 };
+let smoothedMapped = 0;
+
+// Mapping params
+let aMin = 80, aMax = 1200;
+let vMin = 1,  vMax = 20;
+let gateDb = -40, smoothing = 0.7;
+let modTarget = 'vibfreq';
+let curveType = 'linear';
+let activeBand = 'sub'; // which band drives the mapping
+
+// Calibration
+let calActive = false, calSamples = [];
+
+// Vibration engine
+let vibTimer = null;
+
+// History for sparkline on spectrum
+const freqHistory = [];
+
+// ── Frequency band definitions (Hz) ──────────────────────────────────
+const BANDS = {
+  sub:  { lo: 20,   hi: 80   },
+  bass: { lo: 80,   hi: 300  },
+  mid:  { lo: 300,  hi: 2000 },
+  high: { lo: 2000, hi: 8000 },
+  air:  { lo: 8000, hi: 20000}
+};
+
+// ── Musical note detection ────────────────────────────────────────────
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function freqToNote(freq) {
+  if (freq < 16) return { name: '—', octave: '' };
+  const midi   = 69 + 12 * Math.log2(freq / 440);
+  const rounded = Math.round(midi);
+  const name   = NOTE_NAMES[((rounded % 12) + 12) % 12];
+  const octave = Math.floor(rounded / 12) - 1;
+  return { name, octave };
+}
+
+// ── Mapping curves ────────────────────────────────────────────────────
+const CURVES = {
+  linear: t => t,
+  exp:    t => t * t,
+  log:    t => Math.sqrt(Math.max(0, t)),
+  step:   t => t < 0.33 ? 0 : t < 0.66 ? 0.5 : 1
+};
+
+function applyMapping(freq) {
+  const t = Math.max(0, Math.min(1, (freq - aMin) / Math.max(1, aMax - aMin)));
+  return CURVES[curveType](t);
+}
+
+// ── Vibration engine ──────────────────────────────────────────────────
+function computeVibParams(mapped) {
+  const freq = vMin + mapped * (vMax - vMin);
+  const duty = 0.15 + mapped * 0.8;
+  return { freq, duty };
+}
+
+function buildPulse(freq, duty) {
+  const period  = Math.round(1000 / Math.max(0.5, freq));
+  const onTime  = Math.max(10, Math.round(period * duty));
+  const offTime = Math.max(5,  period - onTime);
+  return [onTime, offTime, onTime, offTime, onTime];
+}
+
+function fireVib(mapped) {
+  if (!active) return;
+  if (mapped < 0.02) {
+    if ('vibrate' in navigator) navigator.vibrate(0);
+    clearTimeout(vibTimer);
+    vibTimer = setTimeout(() => fireVib(applyMapping(domFreq)), 150);
+    return;
+  }
+  const { freq, duty } = computeVibParams(mapped);
+  const pattern = buildPulse(freq, duty);
+  if ('vibrate' in navigator) navigator.vibrate(pattern);
+  const cycleDur = pattern.reduce((a,b) => a+b, 0);
+  clearTimeout(vibTimer);
+  vibTimer = setTimeout(() => fireVib(applyMapping(domFreq)), cycleDur + 15);
+}
+
+// ── FFT analysis loop ─────────────────────────────────────────────────
+function analyse() {
+  if (!analyser) return;
+  rafId = requestAnimationFrame(analyse);
+
+  analyser.getByteFrequencyData(dataArray);
+  const binHz = sampleRate / (analyser.fftSize);
+
+  // Find dominant frequency (peak bin in active band range)
+  const bandDef  = BANDS[activeBand];
+  const binLo    = Math.floor(bandDef.lo / binHz);
+  const binHi    = Math.min(freqBinCount - 1, Math.ceil(bandDef.hi / binHz));
+
+  let peakVal = 0, peakBin = binLo;
+  for (let i = binLo; i <= binHi; i++) {
+    if (dataArray[i] > peakVal) { peakVal = dataArray[i]; peakBin = i; }
+  }
+
+  // Parabolic interpolation for sub-bin accuracy
+  let refined = peakBin;
+  if (peakBin > 0 && peakBin < freqBinCount - 1) {
+    const a = dataArray[peakBin - 1], b = dataArray[peakBin], c = dataArray[peakBin + 1];
+    if (2*b - a - c !== 0) refined = peakBin + 0.5 * (a - c) / (2*b - a - c);
+  }
+  const rawFreq = refined * binHz;
+
+  // Noise gate: convert peak value (0-255) to approx dB
+  const peakDb = peakVal > 0 ? 20 * Math.log10(peakVal / 255) : -Infinity;
+  const aboveGate = peakDb > gateDb;
+
+  if (aboveGate) {
+    domFreq = rawFreq;
+    const n = freqToNote(domFreq);
+    domNote = n.name; domOctave = n.octave;
+  }
+
+  // Band energy levels
+  Object.entries(BANDS).forEach(([name, b]) => {
+    const lo = Math.floor(b.lo / binHz), hi = Math.min(freqBinCount-1, Math.ceil(b.hi / binHz));
+    let sum = 0;
+    for (let i = lo; i <= hi; i++) sum += dataArray[i];
+    bandLevels[name] = sum / ((hi - lo + 1) * 255);
+  });
+
+  // Smooth the mapped output
+  const rawMapped = aboveGate ? applyMapping(domFreq) : 0;
+  smoothedMapped  = smoothedMapped * smoothing + rawMapped * (1 - smoothing);
+
+  // Calibration
+  if (calActive && aboveGate) calSamples.push(domFreq);
+
+  // Track history
+  freqHistory.push({ freq: domFreq, db: peakDb, mapped: smoothedMapped });
+  if (freqHistory.length > 300) freqHistory.shift();
+
+  // Update UI
+  updateUI(aboveGate);
+  drawSpectrum();
+  drawMapCanvas();
+  updateAmbient();
+
+  // Trigger vibration
+  if (active) fireVib(smoothedMapped);
+}
+
+// ── UI updates ────────────────────────────────────────────────────────
+function updateUI(aboveGate) {
+  const fStr = domFreq > 0 ? domFreq.toFixed(1) : '—';
+  document.getElementById('freqValue').textContent = domFreq > 0 ? Math.round(domFreq) : '—';
+  document.getElementById('noteBadge').textContent = domNote + (domOctave !== '' ? domOctave : '');
+  document.getElementById('statDom').textContent   = domFreq > 0 ? Math.round(domFreq) + ' Hz' : '—';
+  document.getElementById('statNote').textContent  = domNote + domOctave;
+
+  // Color the big number by mapped intensity
+  const m = smoothedMapped;
+  const r = Math.round(34  + m * (249 - 34));
+  const g = Math.round(211 + m * (115 - 211));
+  const b = Math.round(238 + m * (22  - 238));
+  const col = `rgb(${r},${g},${b})`;
+  document.getElementById('freqValue').style.color      = aboveGate ? col : 'var(--dim)';
+  document.getElementById('freqValue').style.textShadow = aboveGate ? `0 0 28px rgba(${r},${g},${b},0.5)` : 'none';
+  document.getElementById('noteBadge').style.color      = aboveGate ? col : 'var(--dim)';
+
+  // Vib output display
+  const { freq: vf, duty: vd } = computeVibParams(smoothedMapped);
+  document.getElementById('statVib').textContent  = active && aboveGate ? vf.toFixed(1) + ' Hz' : '—';
+  document.getElementById('statMode').textContent = active ? (aboveGate ? 'LIVE' : 'GATED') : 'OFF';
+  document.getElementById('statMode').style.color = active ? (aboveGate ? 'var(--ok)' : 'var(--warn)') : 'var(--dim)';
+
+  // Band level bars
+  Object.entries(bandLevels).forEach(([name, lvl]) => {
+    const el = document.getElementById('bl-' + name);
+    if (el) el.style.width = (lvl * 100).toFixed(1) + '%';
+  });
+}
+
+function updateAmbient() {
+  document.body.style.setProperty('--freq-glow', (smoothedMapped * 0.07).toFixed(3));
+}
+
+// ── Spectrum canvas ───────────────────────────────────────────────────
+function drawSpectrum() {
+  const c   = document.getElementById('specCanvas');
+  const W   = c.offsetWidth || 460; c.width = W; c.height = 130;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#020508'; ctx.fillRect(0, 0, W, 130);
+
+  if (!dataArray) {
+    ctx.fillStyle = 'rgba(54,84,112,0.5)'; ctx.font = '9px Share Tech Mono';
+    ctx.fillText('STANDBY — tap START to begin', 8, 16);
+    return;
+  }
+
+  const binHz    = sampleRate / (analyser.fftSize);
+  const bandDef  = BANDS[activeBand];
+  const maxFreq  = Math.min(sampleRate / 2, bandDef.hi * 2.5); // display a bit beyond band
+  const binsShow = Math.ceil(maxFreq / binHz);
+
+  // Draw frequency bars
+  const barW = W / Math.min(binsShow, freqBinCount);
+  for (let i = 0; i < Math.min(binsShow, freqBinCount); i++) {
+    const v    = dataArray[i] / 255;
+    const barH = v * 118;
+    const binF = i * binHz;
+
+    // Color by band
+    let col = 'rgba(34,211,238,0.4)';
+    if      (binF < 80)   col = `rgba(167,139,250,${0.3 + v*0.6})`;
+    else if (binF < 300)  col = `rgba(34,211,238,${0.3 + v*0.6})`;
+    else if (binF < 2000) col = `rgba(56,189,248,${0.3 + v*0.5})`;
+    else if (binF < 8000) col = `rgba(249,115,22,${0.3 + v*0.5})`;
+    else                  col = `rgba(250,204,21,${0.3 + v*0.4})`;
+
+    ctx.fillStyle = col;
+    ctx.fillRect(i * barW, 130 - barH, barW - 0.5, barH);
+  }
+
+  // Highlight active band region
+  const bLo = Math.floor(bandDef.lo / binHz);
+  const bHi = Math.min(binsShow - 1, Math.ceil(bandDef.hi / binHz));
+  ctx.fillStyle = 'rgba(34,211,238,0.05)';
+  ctx.fillRect(bLo * barW, 0, (bHi - bLo) * barW, 130);
+  ctx.strokeStyle = 'rgba(34,211,238,0.25)'; ctx.lineWidth = 1; ctx.setLineDash([3,4]);
+  ctx.beginPath(); ctx.moveTo(bLo*barW, 0); ctx.lineTo(bLo*barW, 130); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bHi*barW, 0); ctx.lineTo(bHi*barW, 130); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Peak marker (dominant freq)
+  if (domFreq > 0 && domFreq < maxFreq) {
+    const px = (domFreq / maxFreq) * W;
+    ctx.strokeStyle = 'rgba(249,115,22,0.9)'; ctx.lineWidth = 1.5;
+    ctx.shadowBlur = 8; ctx.shadowColor = '#f97316';
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, 130); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#f97316'; ctx.font = 'bold 9px Share Tech Mono';
+    ctx.fillText(Math.round(domFreq) + 'Hz', Math.min(px + 4, W - 50), 14);
+  }
+
+  // Noise gate line
+  // Convert gate dB to amplitude: amplitude = 10^(db/20) * 255
+  const gateAmp = Math.pow(10, gateDb / 20) * 255;
+  const gateY   = 130 - (gateAmp / 255) * 118;
+  ctx.strokeStyle = 'rgba(250,204,21,0.3)'; ctx.lineWidth = 1; ctx.setLineDash([2,5]);
+  ctx.beginPath(); ctx.moveTo(0, gateY); ctx.lineTo(W, gateY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(250,204,21,0.5)'; ctx.font = '8px Share Tech Mono';
+  ctx.fillText('GATE', 4, gateY - 3);
+
+  // Freq axis labels
+  ctx.fillStyle = 'rgba(54,84,112,0.8)'; ctx.font = '8px Share Tech Mono';
+  [50, 100, 200, 500, 1000, 2000, 5000].forEach(f => {
+    if (f < maxFreq) {
+      const x = (f / maxFreq) * W;
+      ctx.fillText(f >= 1000 ? (f/1000)+'k' : f, x, 128);
+    }
+  });
+}
+
+// ── Mapping visualizer ────────────────────────────────────────────────
+function drawMapCanvas() {
+  const c   = document.getElementById('mapCanvas');
+  const W   = c.offsetWidth || 460; c.width = W; c.height = 90;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#020508'; ctx.fillRect(0, 0, W, 90);
+
+  const H = 90;
+  // Grid
+  ctx.strokeStyle = 'rgba(20,30,48,0.9)'; ctx.lineWidth = 1;
+  [0.25,0.5,0.75].forEach(f => {
+    ctx.beginPath(); ctx.moveTo(0, H*(1-f)); ctx.lineTo(W, H*(1-f)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W*f, 0);     ctx.lineTo(W*f, H);     ctx.stroke();
+  });
+
+  // Curve
+  ctx.strokeStyle = 'rgba(167,139,250,0.35)'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let px = 0; px <= W; px++) {
+    const t  = px / W;
+    const yt = CURVES[curveType](t);
+    const y  = H - 4 - yt * (H - 8);
+    px === 0 ? ctx.moveTo(px, y) : ctx.lineTo(px, y);
+  }
+  ctx.stroke();
+
+  // Current position dot
+  const normFreq  = Math.max(0, Math.min(1, (domFreq - aMin) / Math.max(1, aMax - aMin)));
+  const dotX      = normFreq * W;
+  const dotY      = H - 4 - smoothedMapped * (H - 8);
+
+  ctx.strokeStyle = 'rgba(34,211,238,0.25)'; ctx.lineWidth = 1; ctx.setLineDash([3,4]);
+  ctx.beginPath(); ctx.moveTo(dotX, H); ctx.lineTo(dotX, dotY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.beginPath(); ctx.arc(dotX, dotY, 6, 0, Math.PI*2);
+  ctx.fillStyle   = active ? 'var(--vib)' : 'var(--dim)';
+  ctx.shadowBlur  = active ? 14 : 0; ctx.shadowColor = 'var(--vib)';
+  ctx.fill(); ctx.shadowBlur = 0;
+
+  // Axis labels
+  ctx.fillStyle = 'rgba(34,211,238,0.5)'; ctx.font = '8px Share Tech Mono';
+  ctx.fillText('← AUDIO FREQ (' + aMin + '–' + aMax + ' Hz) →', 4, H - 4);
+
+  const { freq: vf } = computeVibParams(smoothedMapped);
+  ctx.fillStyle = active ? 'rgba(249,115,22,0.8)' : 'rgba(54,84,112,0.6)';
+  ctx.fillText('↑ VIB: ' + (active ? vf.toFixed(1) + ' Hz' : '—'), 4, 12);
+
+  if (domFreq > 0) {
+    ctx.fillStyle = 'rgba(250,204,21,0.7)';
+    ctx.fillText(Math.round(domFreq) + ' Hz', Math.min(dotX + 8, W - 55), dotY - 4);
+  }
+}
+
+// ── Curve thumbnails ──────────────────────────────────────────────────
+function drawCurveThumbs() {
+  Object.entries(CURVES).forEach(([name, fn]) => {
+    const c = document.getElementById('cc-' + name);
+    if (!c) return;
+    const W = 48; c.width = W; c.height = 30;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#020508'; ctx.fillRect(0, 0, W, 30);
+    ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x++) {
+      const t = x / W;
+      const y = 27 - fn(t) * 24;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  });
+}
+
+// ── Param controls ────────────────────────────────────────────────────
+function setPct(id, val, mn, mx) {
+  const p = ((val - mn) / (mx - mn) * 100).toFixed(1) + '%';
+  document.getElementById(id).style.setProperty('--pct', p);
+}
+
+function updateParam(key, val) {
+  val = parseFloat(val);
+  switch(key) {
+    case 'aMin':   aMin      = val; document.getElementById('aMinVal').textContent   = val + ' Hz';  setPct('aMinSlider',  val, 20,  2000); break;
+    case 'aMax':   aMax      = val; document.getElementById('aMaxVal').textContent   = val + ' Hz';  setPct('aMaxSlider',  val, 20,  8000); break;
+    case 'vMin':   vMin      = val; document.getElementById('vMinVal').textContent   = val + ' Hz';  setPct('vMinSlider',  val, 1,   20);   break;
+    case 'vMax':   vMax      = val; document.getElementById('vMaxVal').textContent   = val + ' Hz';  setPct('vMaxSlider',  val, 1,   30);   break;
+    case 'gate':   gateDb    = val; document.getElementById('gateVal').textContent   = val + ' dB';  setPct('gateSlider',  val, -80, -10);  break;
+    case 'smooth': smoothing = val; document.getElementById('smoothVal').textContent = val.toFixed(2); setPct('smoothSlider', val, 0, 0.95); break;
+  }
+  drawMapCanvas();
+}
+
+function selectMod(mode) {
+  modTarget = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active-mode'));
+  document.getElementById('mod-' + mode).classList.add('active-mode');
+}
+
+function selectCurve(curve) {
+  curveType = curve;
+  document.querySelectorAll('.curve-btn').forEach(b => b.classList.remove('active-curve'));
+  document.getElementById('curve-' + curve).classList.add('active-curve');
+  drawMapCanvas();
+}
+
+function selectBand(band) {
+  activeBand = band;
+  document.querySelectorAll('.band-box').forEach(b => b.classList.remove('sel'));
+  document.getElementById('band-' + band).classList.add('sel');
+  // Update audio freq range to match band
+  const def = BANDS[band];
+  aMin = def.lo; aMax = def.hi;
+  document.getElementById('aMinSlider').value = aMin;
+  document.getElementById('aMaxSlider').value = Math.min(aMax, 8000);
+  updateParam('aMin', aMin); updateParam('aMax', Math.min(aMax, 8000));
+  log('Band: ' + band.toUpperCase() + ' (' + def.lo + '–' + def.hi + ' Hz)', 'info');
+}
+
+// ── Calibration ───────────────────────────────────────────────────────
+function startCalibration() {
+  if (!active) { log('Start mapping first', 'warn'); return; }
+  if (calActive) return;
+  calActive = true; calSamples = [];
+  log('Calibrating — make sounds for 5 seconds…', 'warn');
+  document.getElementById('calBtn').textContent = '⏳ 5s…';
+  let t = 4;
+  const tick = setInterval(() => {
+    document.getElementById('calBtn').textContent = '⏳ ' + t + 's…';
+    t--;
+    if (t < 0) { clearInterval(tick); finishCalibration(); }
+  }, 1000);
+}
+
+function finishCalibration() {
+  calActive = false;
+  document.getElementById('calBtn').textContent = '⊙ CALIBRATE';
+  if (calSamples.length < 5) { log('Not enough signal — speak louder or lower gate', 'err'); return; }
+  const sorted = [...calSamples].sort((a,b) => a-b);
+  aMin = Math.round(sorted[Math.floor(sorted.length * 0.05)]);
+  aMax = Math.round(sorted[Math.floor(sorted.length * 0.95)]);
+  document.getElementById('aMinSlider').value = Math.min(aMin, 2000);
+  document.getElementById('aMaxSlider').value = Math.min(aMax, 8000);
+  updateParam('aMin', aMin); updateParam('aMax', aMax);
+  log(`Calibrated: ${aMin}–${aMax} Hz (${calSamples.length} samples)`, 'ok');
+}
+
+// ── Mic / Audio setup ─────────────────────────────────────────────────
+async function toggleMapping() {
+  active ? stopMapping() : startMapping();
+}
+
+async function startMapping() {
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) {
+    log('Mic permission denied: ' + e.message, 'err');
+    setStatus('no', '✗ Microphone permission denied');
+    return;
+  }
+
+  audioCtx    = new (window.AudioContext || window.webkitAudioContext)();
+  sampleRate  = audioCtx.sampleRate;
+
+  analyser    = audioCtx.createAnalyser();
+  analyser.fftSize             = 8192;    // high resolution FFT
+  analyser.smoothingTimeConstant = 0.7;
+  freqBinCount = analyser.frequencyBinCount;
+  dataArray    = new Uint8Array(freqBinCount);
+
+  const source = audioCtx.createMediaStreamSource(micStream);
+  source.connect(analyser);
+  // NOT connected to destination — no mic feedback
+
+  active = true;
+  document.getElementById('fireLbl').textContent = '■ STOP MAPPING';
+  document.getElementById('fireBtn').classList.add('active');
+  setStatus('live', '● Microphone active — mapping live');
+  log('Mic started, FFT size ' + analyser.fftSize + ', ' + sampleRate + ' Hz sample rate', 'ok');
+  if (!('vibrate' in navigator)) log('Vibration API not available — visual only', 'warn');
+
+  analyse();
+}
+
+function stopMapping() {
+  active = false;
+  cancelAnimationFrame(rafId);
+  clearTimeout(vibTimer);
+  if ('vibrate' in navigator) navigator.vibrate(0);
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (audioCtx)  { audioCtx.close(); audioCtx = null; }
+  analyser = null; dataArray = null;
+  smoothedMapped = 0;
+  document.getElementById('fireLbl').textContent = '▶ START MAPPING';
+  document.getElementById('fireBtn').classList.remove('active');
+  document.body.style.setProperty('--freq-glow', '0');
+  setStatus('pending', 'Stopped — tap START to resume');
+  log('Mapping stopped', 'info');
+  drawSpectrum(); drawMapCanvas();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function setStatus(state, msg) {
+  const dot = document.getElementById('bannerDot');
+  const txt = document.getElementById('bannerText');
+  const map = { ok:'ok', live:'live', no:'no', pending:'pending', warn:'pending' };
+  dot.className = 'dot ' + (map[state] || 'pending');
+  txt.textContent = msg;
+  txt.style.color = state==='ok'||state==='live' ? 'var(--ok)' : state==='no' ? 'var(--danger)' : state==='warn' ? 'var(--warn)' : 'var(--text)';
+}
+
+function log(msg, type='info') {
+  const box = document.getElementById('statusLog');
+  const ts  = new Date().toTimeString().slice(0,8);
+  const el  = document.createElement('div');
+  el.className = 'log-e';
+  el.innerHTML = `<span class="log-t">[${ts}]</span><span class="${type}">${msg}</span>`;
+  box.appendChild(el); box.scrollTop = box.scrollHeight;
+  while (box.children.length > 60) box.removeChild(box.firstChild);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  drawCurveThumbs();
+  drawSpectrum();
+  drawMapCanvas();
+  log('FreqHaptic ready — tap START MAPPING', 'info');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+    { setStatus('no', '✗ getUserMedia not available'); log('No microphone API', 'err'); }
+  if (!('vibrate' in navigator))
+    log('Vibration API not detected — haptic output may not work', 'warn');
+});
+
+window.addEventListener('resize', () => {
+  drawCurveThumbs(); drawSpectrum(); drawMapCanvas();
+});
+</script>
+</body>
+</html>
