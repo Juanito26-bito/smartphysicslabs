@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Physics – Timeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Code+Pro:wght@400;600&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #06101b;
+    background-image:
+      radial-gradient(ellipse at 15% 10%, #0d2a4a55 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 85%, #1a0d2e44 0%, transparent 55%);
+    font-family: 'Lato', sans-serif;
+    color: #dde4f0;
+    min-height: 100vh;
+    padding: 60px 20px 100px;
+  }
+
+  /* ── HEADER ── */
+  header { text-align: center; margin-bottom: 52px; }
+
+  .site-logo {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; margin-bottom: 20px;
+  }
+  .site-logo img { height: 44px; filter: brightness(1.2); }
+
+  .overline {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 11px; letter-spacing: 6px; color: #4fc3f7;
+    text-transform: uppercase; margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(26px, 4.5vw, 48px);
+    font-weight: 400; color: #fff; line-height: 1.15; margin-bottom: 16px;
+  }
+  h1 em { font-style: italic; color: #4fc3f7; }
+
+  .subtitle {
+    color: #7a8faa; font-size: 15px; line-height: 1.8;
+    max-width: 520px; margin: 0 auto; font-weight: 300;
+  }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    justify-content: center; margin-bottom: 52px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 20px; padding: 5px 14px;
+    font-size: 11px; color: #99aabb;
+    font-family: 'Source Code Pro', monospace;
+    letter-spacing: 0.3px;
+  }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── TIMELINE ── */
+  .timeline { max-width: 980px; margin: 0 auto; position: relative; }
+
+  .spine {
+    position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+    background: linear-gradient(to bottom, transparent 0%, #1e3a54 3%, #1e3a54 97%, transparent 100%);
+    transform: translateX(-50%);
+  }
+
+  /* ── YEAR GROUP ── */
+  .year-group { margin-bottom: 52px; animation: fadeUp 0.6s ease both; }
+
+  .year-badge-wrap {
+    display: flex; justify-content: center;
+    margin-bottom: 24px; position: relative; z-index: 2;
+  }
+  .year-badge {
+    background: linear-gradient(135deg, #0d2440, #112038);
+    border: 1px solid #4fc3f7; border-radius: 30px;
+    padding: 7px 30px;
+    font-family: 'Source Code Pro', monospace;
+    font-size: 18px; font-weight: 600; color: #4fc3f7; letter-spacing: 3px;
+    box-shadow: 0 0 28px rgba(79,195,247,0.22), inset 0 0 14px rgba(79,195,247,0.06);
+  }
+
+  .articles-row { display: flex; flex-direction: column; gap: 16px; }
+
+  /* ── ENTRY ── */
+  .entry { display: flex; position: relative; align-items: flex-start; }
+  .entry.left  { justify-content: flex-end;  padding-right: calc(50% + 30px); }
+  .entry.right { justify-content: flex-start; padding-left:  calc(50% + 30px); }
+
+  .spine-dot {
+    position: absolute; left: 50%; top: 20px;
+    transform: translateX(-50%);
+    width: 14px; height: 14px; border-radius: 50%; z-index: 3;
+    transition: transform 0.2s;
+  }
+  .entry:hover .spine-dot { transform: translateX(-50%) scale(1.4); }
+
+  /* ── CARD ── */
+  .card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 14px; overflow: hidden;
+    max-width: 400px; width: 100%; cursor: pointer;
+    transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+  }
+  .card:hover { background: rgba(255,255,255,0.07); }
+  .card.open  { background: rgba(255,255,255,0.07); }
+
+  .card-img {
+    width: 100%; height: 160px; object-fit: cover;
+    display: block; border-bottom: 1px solid rgba(255,255,255,0.08);
+    filter: brightness(0.88) saturate(0.9);
+    transition: filter 0.3s;
+  }
+  .card:hover .card-img, .card.open .card-img { filter: brightness(1) saturate(1.1); }
+
+  .card-body { padding: 14px 16px; }
+
+  .card-meta {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 7px; flex-wrap: wrap;
+  }
+  .card-tag {
+    font-size: 10px; padding: 2px 10px; border-radius: 10px;
+    font-family: 'Source Code Pro', monospace; letter-spacing: 0.3px;
+  }
+  .card-journal {
+    font-size: 10px; color: #556677;
+    font-family: 'Source Code Pro', monospace;
+  }
+
+  .card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px; color: #ccd8ee; line-height: 1.45; margin-bottom: 6px;
+  }
+
+  .card-authors {
+    font-size: 11px; color: #556880; font-weight: 300; line-height: 1.5;
+    display: none;
+  }
+  .card.open .card-authors { display: block; }
+
+  .card-doi {
+    display: none; margin-top: 8px;
+  }
+  .card.open .card-doi { display: block; }
+  .card-doi a {
+    font-size: 10px; color: #4fc3f7; font-family: 'Source Code Pro', monospace;
+    text-decoration: none; word-break: break-all;
+  }
+  .card-doi a:hover { text-decoration: underline; }
+
+  /* ── SECTION DIVIDER ── */
+  .cat-header {
+    text-align: center; margin: 48px 0 28px; position: relative; z-index: 2;
+  }
+  .cat-header span {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px; letter-spacing: 4px; text-transform: uppercase;
+    background: #06101b; padding: 0 14px; color: #445566;
+  }
+  .cat-header::before {
+    content: ''; position: absolute; left: 0; right: 0;
+    top: 50%; height: 1px; background: rgba(255,255,255,0.06); z-index: -1;
+  }
+
+  footer {
+    text-align: center; margin-top: 64px;
+    font-family: 'Source Code Pro', monospace;
+    font-size: 10px; color: #334455; letter-spacing: 1.5px; text-transform: uppercase;
+  }
+  footer a { color: #4fc3f7; text-decoration: none; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 640px) {
+    .spine, .spine-dot { display: none; }
+    .entry.left, .entry.right { padding: 0; justify-content: center; }
+    .card { max-width: 100%; }
+    .card-img { height: 200px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="site-logo">
+    <img src="https://smartphysics.webs.upv.es/wp-content/uploads/2017/05/smartlogo-1-e1579013538562.png" alt="Smart Physics">
+  </div>
+  <div class="overline">Universitat Politècnica de València · Physics Education Research</div>
+  <h1>The Smartphone as a <em>Physics Lab</em></h1>
+  <p class="subtitle">A chronological visual summary of the Smart Physics group's published research on using smartphones as instruments for teaching physics — 2013 to 2025.</p>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#4fc3f7;box-shadow:0 0 6px #4fc3f7"></div>Acelerómetro / Giroscopio</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ce93d8;box-shadow:0 0 6px #ce93d8"></div>Sensor Acústico</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ffd54f;box-shadow:0 0 6px #ffd54f"></div>Sensores Ópticos</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ef9a9a;box-shadow:0 0 6px #ef9a9a"></div>Sensor de Presión</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4dd0e1;box-shadow:0 0 6px #4dd0e1"></div>Electricidad y Magnetismo</div>
+</div>
+
+<div class="timeline">
+<div class="spine"></div>
+
+<!-- ════════════════════ 2013 ════════════════════ -->
+<div class="year-group" style="animation-delay:.05s">
+  <div class="year-badge-wrap"><div class="year-badge">2013</div></div>
+  <div class="articles-row">
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#4fc3f7;box-shadow:0 0 10px #4fc3f7"></div>
+      <div class="card" onclick="toggle(this,'#4fc3f7')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2017/05/A04-300x197.jpg" alt="Coupled oscillations">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4fc3f714;color:#4fc3f7;border:1px solid #4fc3f733">Acelerómetro</span>
+            <span class="card-journal">Eur. J. Phys. 34 (2013)</span>
+          </div>
+          <div class="card-title">A quantitative analysis of coupled oscillations using mobile accelerometer sensors</div>
+          <div class="card-authors">J.C. Castro-Palacio, L. Velazquez-Abad, F. Gimenez, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="http://dx.doi.org/10.1088/0143-0807/34/3/737" target="_blank">doi:10.1088/0143-0807/34/3/737</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#4fc3f7;box-shadow:0 0 10px #4fc3f7"></div>
+      <div class="card" onclick="toggle(this,'#4fc3f7')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2017/05/A05-300x199.jpg" alt="Free and damped harmonic oscillations">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4fc3f714;color:#4fc3f7;border:1px solid #4fc3f733">Acelerómetro</span>
+            <span class="card-journal">Am. J. Phys. 81 (2013)</span>
+          </div>
+          <div class="card-title">Using a mobile phone acceleration sensor in physics experiments on free and damped harmonic oscillations</div>
+          <div class="card-authors">J.C. Castro-Palacio, L. Velazquez-Abad, M.H. Gimenez, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="http://hdl.handle.net/10251/54285" target="_blank">hdl:10251/54285</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#ffd54f;box-shadow:0 0 10px #ffd54f"></div>
+      <div class="card" onclick="toggle(this,'#ffd54f')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2017/05/A09-300x188.jpg" alt="Oscillations ambient light sensor">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ffd54f14;color:#ffd54f;border:1px solid #ffd54f33">Sensor Óptico</span>
+            <span class="card-journal">Eur. J. Phys. 34 (2013)</span>
+          </div>
+          <div class="card-title">Oscillations studied with the smartphone ambient light sensor</div>
+          <div class="card-authors">J.A. Sans, F.J. Manjón, A.L.J. Pereira, J.A. Gomez-Tejedor, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="http://dx.doi.org/10.1088/0143-0807/34/6/1349" target="_blank">doi:10.1088/0143-0807/34/6/1349</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ 2014 ════════════════════ -->
+<div class="year-group" style="animation-delay:.1s">
+  <div class="year-badge-wrap"><div class="year-badge">2014</div></div>
+  <div class="articles-row">
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#4fc3f7;box-shadow:0 0 10px #4fc3f7"></div>
+      <div class="card" onclick="toggle(this,'#4fc3f7')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2017/05/A03-300x210.jpg" alt="Circular motions">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4fc3f714;color:#4fc3f7;border:1px solid #4fc3f733">Acelerómetro</span>
+            <span class="card-journal">Rev. Bras. Ens. Fis. 36 (2014)</span>
+          </div>
+          <div class="card-title">Using a smartphone acceleration sensor to study uniform and uniformly accelerated circular motions</div>
+          <div class="card-authors">J.C. Castro-Palacio, L. Velázquez-Abad, J.A. Gómez-Tejedor, F.J. Manjón, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="http://dx.doi.org/10.1590/S1806-11172014000200015" target="_blank">doi:10.1590/S1806-11172014000200015</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#ce93d8;box-shadow:0 0 10px #ce93d8"></div>
+      <div class="card" onclick="toggle(this,'#ce93d8')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2017/05/P02-300x126.jpg" alt="Doppler effect">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ce93d814;color:#ce93d8;border:1px solid #ce93d833">Sensor Acústico</span>
+            <span class="card-journal">Eur. J. Phys. 35 (2014)</span>
+          </div>
+          <div class="card-title">The acoustic Doppler effect applied to the study of linear motions</div>
+          <div class="card-authors">J.A. Gómez-Tejedor, J.C. Castro-Palacio, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="http://hdl.handle.net/10251/38089" target="_blank">hdl:10251/38089</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#ffd54f;box-shadow:0 0 10px #ffd54f"></div>
+      <div class="card" onclick="toggle(this,'#ffd54f')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2017/05/A10-251x300.jpg" alt="Diffraction electronic components">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ffd54f14;color:#ffd54f;border:1px solid #ffd54f33">Sensor Óptico</span>
+            <span class="card-journal">Am. J. Phys. 82 (2014)</span>
+          </div>
+          <div class="card-title">Diffraction by electronic components of everyday use</div>
+          <div class="card-authors">J.J. Barreiro, A. Pons, J.C. Barreiro, J.C. Castro-Palacio, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="http://hdl.handle.net/10251/54288" target="_blank">hdl:10251/54288</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ 2015 ════════════════════ -->
+<div class="year-group" style="animation-delay:.15s">
+  <div class="year-badge-wrap"><div class="year-badge">2015</div></div>
+  <div class="articles-row">
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#4fc3f7;box-shadow:0 0 10px #4fc3f7"></div>
+      <div class="card" onclick="toggle(this,'#4fc3f7')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2017/05/A02-300x232.jpg" alt="Lissajous curves">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4fc3f714;color:#4fc3f7;border:1px solid #4fc3f733">Acelerómetro</span>
+            <span class="card-journal">Phys. Educ. 50 (2015)</span>
+          </div>
+          <div class="card-title">The Study of Two-Dimensional Oscillations Using a Smartphone Acceleration Sensor: Example of Lissajous Curves</div>
+          <div class="card-authors">L. Tuset-Sanchis, J.C. Castro-Palacio, J.A. Gómez-Tejedor, F.J. Manjón, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="http://dx.doi.org/10.1088/0031-9120/50/5/580" target="_blank">doi:10.1088/0031-9120/50/5/580</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#ce93d8;box-shadow:0 0 10px #ce93d8"></div>
+      <div class="card" onclick="toggle(this,'#ce93d8')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2017/12/C10-225x300.jpg" alt="Frequency Analyser">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ce93d814;color:#ce93d8;border:1px solid #ce93d833">Sensor Acústico</span>
+            <span class="card-journal">Comp. App. Eng. Educ. 23 (2015)</span>
+          </div>
+          <div class="card-title">Frequency Analyser: A New Android Application for High Precision Frequency Measurement</div>
+          <div class="card-authors">J.A. Gómez-Tejedor, J.C. Castro-Palacio, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="http://dx.doi.org/10.1002/cae.21618" target="_blank">doi:10.1002/cae.21618</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ 2017 ════════════════════ -->
+<div class="year-group" style="animation-delay:.2s">
+  <div class="year-badge-wrap"><div class="year-badge">2017</div></div>
+  <div class="articles-row">
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#4fc3f7;box-shadow:0 0 10px #4fc3f7"></div>
+      <div class="card" onclick="toggle(this,'#4fc3f7')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2018/01/mb.jpg" alt="Mechanical beats">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4fc3f714;color:#4fc3f7;border:1px solid #4fc3f733">Acelerómetro</span>
+            <span class="card-journal">The Physics Teacher 55 (2017)</span>
+          </div>
+          <div class="card-title">Direct Visualization of Mechanical Beats by Means of an Oscillating Smartphone</div>
+          <div class="card-authors">M.H. Giménez, I. Salinas, J.A. Monsoriu, J.C. Castro-Palacio</div>
+          <div class="card-doi"><a href="https://doi.org/10.1119/1.5003745" target="_blank">doi:10.1119/1.5003745</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#ffd54f;box-shadow:0 0 10px #ffd54f"></div>
+      <div class="card" onclick="toggle(this,'#ffd54f')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2017/05/A08-300x182.jpg" alt="Optical sources efficiency">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ffd54f14;color:#ffd54f;border:1px solid #ffd54f33">Sensor Óptico</span>
+            <span class="card-journal">Eur. J. Phys. 38 (2017)</span>
+          </div>
+          <div class="card-title">Determining the efficiency of optical sources using a smartphone's ambient light sensor</div>
+          <div class="card-authors">J.A. Sans, J. Gea-Pinal, M.H. Gimenez, A.R. Esteve, J. Solbes, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="http://dx.doi.org/10.1088/1361-6404/aa51a9" target="_blank">doi:10.1088/1361-6404/aa51a9</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#ce93d8;box-shadow:0 0 10px #ce93d8"></div>
+      <div class="card" onclick="toggle(this,'#ce93d8')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2017/12/af.jpg" alt="Acoustical beats">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ce93d814;color:#ce93d8;border:1px solid #ce93d833">Sensor Acústico</span>
+            <span class="card-journal">Técnica Industrial 318 (2017)</span>
+          </div>
+          <div class="card-title">The Smartphone as a Sound Level Meter: Visualizing Acoustical Beats</div>
+          <div class="card-authors">I. Salinas, M.H. Giménez, J.C. Castro-Palacio, J.A. Gómez-Tejedor, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="http://www.tecnicaindustrial.es/TIAdmin/Numeros/108/5631/a5631.pdf" target="_blank">tecnicaindustrial.es</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ 2018 ════════════════════ -->
+<div class="year-group" style="animation-delay:.25s">
+  <div class="year-badge-wrap"><div class="year-badge">2018</div></div>
+  <div class="articles-row">
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#ffd54f;box-shadow:0 0 10px #ffd54f"></div>
+      <div class="card" onclick="toggle(this,'#ffd54f')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2019/06/luz.jpg" alt="Linear light sources">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ffd54f14;color:#ffd54f;border:1px solid #ffd54f33">Sensor Óptico</span>
+            <span class="card-journal">The Physics Teacher 56 (2018)</span>
+          </div>
+          <div class="card-title">Characterization of linear light sources with the smartphone's ambient light sensor</div>
+          <div class="card-authors">I. Salinas, M.H. Giménez, J.A. Monsoriu, J.C. Castro-Palacio</div>
+          <div class="card-doi"><a href="https://doi.org/10.1119/1.5064575" target="_blank">doi:10.1119/1.5064575</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#4fc3f7;box-shadow:0 0 10px #4fc3f7"></div>
+      <div class="card" onclick="toggle(this,'#4fc3f7')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2019/06/af.jpg" alt="Forced oscillations">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4fc3f714;color:#4fc3f7;border:1px solid #4fc3f733">Acelerómetro</span>
+            <span class="card-journal">Rev. Española Fís. 32 (2018)</span>
+          </div>
+          <div class="card-title">Cómo visualizar las oscilaciones forzadas en tu smartphone</div>
+          <div class="card-authors">I. Salinas, M.H. Giménez, J.A. Sans, J.C. Castro-Palacio, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="http://revistadefisica.es/index.php/ref/article/view/2339" target="_blank">revistadefisica.es</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#ef9a9a;box-shadow:0 0 10px #ef9a9a"></div>
+      <div class="card" onclick="toggle(this,'#ef9a9a')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2018/02/IMG_1912-e1517909711108-1024x1024.jpg" alt="Barometer">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ef9a9a14;color:#ef9a9a;border:1px solid #ef9a9a33">Sensor de Presión</span>
+            <span class="card-journal">Modell. Sci. Educ. Learn. 11 (2018)</span>
+          </div>
+          <div class="card-title">El smartphone como barómetro en experimentos de Física</div>
+          <div class="card-authors">I. Salinas, M.H. Giménez, J.A. Monsoriu, J.C. Castro-Palacio</div>
+          <div class="card-doi"><a href="https://polipapers.upv.es/index.php/MSEL/article/view/9021" target="_blank">polipapers.upv.es</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ 2019 ════════════════════ -->
+<div class="year-group" style="animation-delay:.28s">
+  <div class="year-badge-wrap"><div class="year-badge">2019</div></div>
+  <div class="articles-row">
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#4fc3f7;box-shadow:0 0 10px #4fc3f7"></div>
+      <div class="card" onclick="toggle(this,'#4fc3f7')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2019/06/torsion.jpg" alt="Parallel axis theorem">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4fc3f714;color:#4fc3f7;border:1px solid #4fc3f733">Giroscopio</span>
+            <span class="card-journal">The Physics Teacher 57 (2019)</span>
+          </div>
+          <div class="card-title">Demonstration of the parallel axis theorem through a smartphone</div>
+          <div class="card-authors">I. Salinas, M.H. Giménez, J.A. Monsoriu, J.A. Sans</div>
+          <div class="card-doi"><a href="https://doi.org/10.1119/1.5098929" target="_blank">doi:10.1119/1.5098929</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ 2020 ════════════════════ -->
+<div class="year-group" style="animation-delay:.3s">
+  <div class="year-badge-wrap"><div class="year-badge">2020</div></div>
+  <div class="articles-row">
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#4fc3f7;box-shadow:0 0 10px #4fc3f7"></div>
+      <div class="card" onclick="toggle(this,'#4fc3f7')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2021/05/yoyo.jpg" alt="Yo-yo gyroscope">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4fc3f714;color:#4fc3f7;border:1px solid #4fc3f733">Giroscopio</span>
+            <span class="card-journal">The Physics Teacher 58 (2020)</span>
+          </div>
+          <div class="card-title">Analyzing the Dynamics of a Yo-Yo Using a Smartphone Gyroscope Sensor</div>
+          <div class="card-authors">I. Salinas, M. Monteiro, A. Martí, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="https://doi.org/10.1119/10.0002379" target="_blank">doi:10.1119/10.0002379</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ 2022 ════════════════════ -->
+<div class="year-group" style="animation-delay:.32s">
+  <div class="year-badge-wrap"><div class="year-badge">2022</div></div>
+  <div class="articles-row">
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#ce93d8;box-shadow:0 0 10px #ce93d8"></div>
+      <div class="card" onclick="toggle(this,'#ce93d8')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2022/10/TPT2022-1024x695.jpg" alt="Magnetic braking">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ce93d814;color:#ce93d8;border:1px solid #ce93d833">Sensor Acústico</span>
+            <span class="card-journal">The Physics Teacher 60 (2022)</span>
+          </div>
+          <div class="card-title">Acoustic characterization of magnetic braking with a smartphone</div>
+          <div class="card-authors">C.F. Marín-Sepúlveda, J.C. Castro-Palacio, I. Salinas, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="https://doi.org/10.1119/5.0097792" target="_blank">doi:10.1119/5.0097792</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ 2023 ════════════════════ -->
+<div class="year-group" style="animation-delay:.35s">
+  <div class="year-badge-wrap"><div class="year-badge">2023</div></div>
+  <div class="articles-row">
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#ce93d8;box-shadow:0 0 10px #ce93d8"></div>
+      <div class="card" onclick="toggle(this,'#ce93d8')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2023/03/sonar.jpg" alt="Sonar g determination">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ce93d814;color:#ce93d8;border:1px solid #ce93d833">Sensor Acústico · Sonar</span>
+            <span class="card-journal">Phys. Educ. 58 (2023)</span>
+          </div>
+          <div class="card-title">Acoustic determination of g by tracking a free-falling body using a smartphone as a 'sonar'</div>
+          <div class="card-authors">C.F. Marín-Sepúlveda, J.C. Castro-Palacio, M.H. Giménez, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="https://doi.org/10.1088/1361-6552/acbaf6" target="_blank">doi:10.1088/1361-6552/acbaf6</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#ef9a9a;box-shadow:0 0 10px #ef9a9a"></div>
+      <div class="card" onclick="toggle(this,'#ef9a9a')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2023/09/tanque.bmp" alt="Draining container barometer">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ef9a9a14;color:#ef9a9a;border:1px solid #ef9a9a33">Sensor de Presión</span>
+            <span class="card-journal">Phys. Educ. 58 (2023)</span>
+          </div>
+          <div class="card-title">Barometric characterization of a draining container</div>
+          <div class="card-authors">I. Salinas, F.M. Muñoz-Pérez, J.C. Castro-Palacio, L. Velázquez, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="https://iopscience.iop.org/article/10.1088/1361-6552/ace873" target="_blank">doi:10.1088/1361-6552/ace873</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#4dd0e1;box-shadow:0 0 10px #4dd0e1"></div>
+      <div class="card" onclick="toggle(this,'#4dd0e1')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2023/09/generaador-1024x568.jpg" alt="RC RL circuits">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4dd0e114;color:#4dd0e1;border:1px solid #4dd0e133">Electricidad y Magnetismo</span>
+            <span class="card-journal">Rev. Bras. Ens. Fis. 45 (2023)</span>
+          </div>
+          <div class="card-title">Experimenting with RC and RL series circuits using smartphones as signal generators and oscilloscopes</div>
+          <div class="card-authors">I. Torriente-García, F.M. Muñoz-Pérez, A.C. Martí, M. Monteiro, J.C. Castro-Palacio, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="https://doi.org/10.1590/1806-9126-RBEF-2023-0143" target="_blank">doi:10.1590/1806-9126-RBEF-2023-0143</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ 2024 ════════════════════ -->
+<div class="year-group" style="animation-delay:.4s">
+  <div class="year-badge-wrap"><div class="year-badge">2024</div></div>
+  <div class="articles-row">
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#ce93d8;box-shadow:0 0 10px #ce93d8"></div>
+      <div class="card" onclick="toggle(this,'#ce93d8')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2024/09/inv.jpg" alt="Inverse square law">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#ce93d814;color:#ce93d8;border:1px solid #ce93d833">Sensor Acústico</span>
+            <span class="card-journal">Phys. Educ. 59 (2024)</span>
+          </div>
+          <div class="card-title">Acoustic testing of the inverse-square law using the infrared signal of a remote control</div>
+          <div class="card-authors">C.F. Marín-Sepúlveda, J.C. Castro-Palacio, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="https://doi.org/10.1088/1361-6552/ad37e7" target="_blank">doi:10.1088/1361-6552/ad37e7</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#4dd0e1;box-shadow:0 0 10px #4dd0e1"></div>
+      <div class="card" onclick="toggle(this,'#4dd0e1')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2024/09/RLC-1024x705.jpg" alt="RLC Q-factor">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4dd0e114;color:#4dd0e1;border:1px solid #4dd0e133">Electricidad y Magnetismo</span>
+            <span class="card-journal">Phys. Educ. 59 (2024)</span>
+          </div>
+          <div class="card-title">Measuring the Q-factor of a series RLC circuit with a smartphone as a function generator</div>
+          <div class="card-authors">S. Ortuño-Molina, F.M. Muñoz-Pérez, A. Garmendia, J.C. Castro-Palacio, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="https://doi.org/10.1088/1361-6552/ad04fb" target="_blank">doi:10.1088/1361-6552/ad04fb</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#4dd0e1;box-shadow:0 0 10px #4dd0e1"></div>
+      <div class="card" onclick="toggle(this,'#4dd0e1')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2024/09/int-1024x721.jpg" alt="Internal resistance inductor">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4dd0e114;color:#4dd0e1;border:1px solid #4dd0e133">Electricidad y Magnetismo</span>
+            <span class="card-journal">Phys. Educ. 59 (2024)</span>
+          </div>
+          <div class="card-title">The internal resistance of a non-ideal inductor in an RLC series circuit at resonance</div>
+          <div class="card-authors">I. Torriente-García, F.M. Muñoz-Pérez, J.C. Castro-Palacio, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="https://doi.org/10.1088/1361-6552/ad3da8" target="_blank">doi:10.1088/1361-6552/ad3da8</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="entry right">
+      <div class="spine-dot" style="background:#4dd0e1;box-shadow:0 0 10px #4dd0e1"></div>
+      <div class="card" onclick="toggle(this,'#4dd0e1')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2025/10/Q-factor.jpg" alt="RLC portable">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4dd0e114;color:#4dd0e1;border:1px solid #4dd0e133">Electricidad y Magnetismo</span>
+            <span class="card-journal">Phys. Educ. 59 (2024)</span>
+          </div>
+          <div class="card-title">RLC series circuit made simple and portable with smartphones</div>
+          <div class="card-authors">I. Torriente-García, A.C. Martí, M. Monteiro, C. Stari, J.C. Castro-Palacio, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="https://doi.org/10.1088/1361-6552/ad81c6" target="_blank">doi:10.1088/1361-6552/ad81c6</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════ 2025 ════════════════════ -->
+<div class="year-group" style="animation-delay:.45s">
+  <div class="year-badge-wrap"><div class="year-badge">2025</div></div>
+  <div class="articles-row">
+
+    <div class="entry left">
+      <div class="spine-dot" style="background:#4dd0e1;box-shadow:0 0 10px #4dd0e1"></div>
+      <div class="card" onclick="toggle(this,'#4dd0e1')">
+        <img class="card-img" src="https://smartphysics.webs.upv.es/wp-content/uploads/2025/10/BL-1024x840.jpg" alt="Beat phenomenon light beams">
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="card-tag" style="background:#4dd0e114;color:#4dd0e1;border:1px solid #4dd0e133">Electricidad y Magnetismo</span>
+            <span class="card-journal">The Physics Teacher 63 (2025)</span>
+          </div>
+          <div class="card-title">Visualizing beat phenomenon between two amplitude-modulated light beams on a solar cell using smartphones</div>
+          <div class="card-authors">S. Ortuño-Molina, F.M. Muñoz-Pérez, J.C. Castro-Palacio, J.A. Monsoriu</div>
+          <div class="card-doi"><a href="https://doi.org/10.1119/5.0207153" target="_blank">doi:10.1119/5.0207153</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</div><!-- /timeline -->
+
+<footer>
+  Click any card to expand authors & DOI &nbsp;·&nbsp;
+  <a href="https://smartphysics.webs.upv.es/" target="_blank">smartphysics.webs.upv.es</a>
+  &nbsp;·&nbsp; © Smart Physics Group, UPV
+</footer>
+
+<script>
+function toggle(card, color) {
+  const wasOpen = card.classList.contains('open');
+  card.classList.toggle('open');
+  if (!wasOpen) {
+    card.style.borderColor = color;
+    card.style.boxShadow = '0 6px 28px ' + color + '33';
+  } else {
+    card.style.borderColor = '';
+    card.style.boxShadow = '';
+  }
+}
+</script>
+</body>
+</html>
